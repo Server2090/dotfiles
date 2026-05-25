@@ -106,7 +106,30 @@ fi
 
 success "Detected desktop environment: $DE"
 
+# =============================================================================
+# DETECT BAT COMMAND NAME
+# On Debian/Parrot/Kali/Ubuntu the package is called 'batcat' and the binary
+# is also 'batcat'. On Arch, Fedora, and others it's just 'bat'.
+# We check what's actually installed first, then fall back to checking the
+# package manager to decide what to install.
+# =============================================================================
+if command -v batcat &>/dev/null; then
+  BAT_CMD="batcat"
+  BAT_PKG="batcat"
+elif command -v bat &>/dev/null; then
+  BAT_CMD="bat"
+  BAT_PKG="bat"
+elif command -v apt-get &>/dev/null; then
+  # Not installed yet — on apt systems it's always batcat
+  BAT_CMD="batcat"
+  BAT_PKG="batcat"
+else
+  # Non-apt system (Arch, Fedora etc) — it's called bat
+  BAT_CMD="bat"
+  BAT_PKG="bat"
+fi
 
+success "bat: will install '$BAT_PKG', alias will use '$BAT_CMD'"
 
 # =============================================================================
 # STEP 3 — CREATE .zshrc IF IT DOESN'T EXIST IN THE REPO
@@ -119,7 +142,7 @@ if [ ! -f "$REPO_DIR/.zshrc" ]; then
   info "Creating .zshrc in $REPO_DIR..."
 
   # This is a heredoc — everything between EOF markers is written to the file
-  # The bat alias is hardcoded as batcat — correct for all Debian-based distros
+  # The bat alias is set dynamically based on detected distro (batcat on Debian, bat elsewhere)
   cat << EOF > "$REPO_DIR/.zshrc"
 # Enable Powerlevel10k instant prompt.
 # This makes the prompt appear almost instantly while zsh loads in the background.
@@ -174,7 +197,7 @@ eval "\$(zoxide init zsh)"
 # =============================================================================
 # ALIASES — shortcuts for common commands
 # =============================================================================
-alias bat='batcat'               # batcat is the Debian package name — this alias lets you just type 'bat'
+alias bat='${BAT_CMD}'           # points to the correct bat binary for this distro
 alias ls='eza --icons --group-directories-first'          # better ls with icons
 alias ll='eza --icons --group-directories-first --long'   # ls with details
 alias la='eza --icons --group-directories-first --long --all'  # include hidden files
@@ -193,6 +216,14 @@ EOF
 else
   info ".zshrc already exists in $REPO_DIR — skipping creation"
 fi
+
+# Always ensure the bat alias is correct regardless of whether .zshrc was
+# just created or already existed from a previous run.
+# This fixes the case where an old .zshrc had the wrong alias baked in.
+# sed -i deletes any existing alias bat= line, then we append the correct one.
+sed -i "/^alias bat=/d" "$REPO_DIR/.zshrc"
+echo "alias bat='$BAT_CMD'" >> "$REPO_DIR/.zshrc"
+success "bat alias ensured as '$BAT_CMD' in .zshrc"
 
 # Handle p10k config — either copy existing one or create empty placeholder
 if [ ! -f "$REPO_DIR/.p10k.zsh" ]; then
@@ -218,11 +249,10 @@ CORE_PACKAGES="zsh git curl fzf zoxide tealdeer htop"
 info "Installing core packages: $CORE_PACKAGES"
 sudo apt install -y $CORE_PACKAGES
 
-# Install batcat — the syntax-highlighted cat replacement.
-# Always called 'batcat' on Debian-based distros (Parrot, Kali, Ubuntu, Debian).
-# The alias bat='batcat' in .zshrc means you type 'bat' and it just works.
-info "Installing batcat..."
-sudo apt install -y batcat || warn "batcat not available — skipping"
+# Install bat — the syntax-highlighted cat replacement.
+# BAT_PKG is detected above: 'batcat' on Debian/Parrot/Kali/Ubuntu, 'bat' elsewhere.
+info "Installing bat ($BAT_PKG)..."
+sudo apt install -y "$BAT_PKG" || warn "$BAT_PKG not available — skipping"
 
 # Install eza (modern ls replacement)
 # eza is newer and not always in repos — we try it and fall back gracefully
