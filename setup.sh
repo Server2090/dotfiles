@@ -106,33 +106,7 @@ fi
 
 success "Detected desktop environment: $DE"
 
-# Also detect which package manager / distro we're on
-# This affects package names (e.g. bat vs batcat on Debian)
-if command -v apt-get &>/dev/null; then
-  PKG_MANAGER="apt"
-  # Check if bat is available as 'bat' or 'batcat' (Debian names it batcat)
-  if apt-cache show bat &>/dev/null 2>&1; then
-    BAT_PKG="bat"
-    BAT_CMD="bat"
-  else
-    BAT_PKG="batcat"
-    BAT_CMD="batcat"
-  fi
-elif command -v pacman &>/dev/null; then
-  PKG_MANAGER="pacman"
-  BAT_PKG="bat"
-  BAT_CMD="bat"
-elif command -v dnf &>/dev/null; then
-  PKG_MANAGER="dnf"
-  BAT_PKG="bat"
-  BAT_CMD="bat"
-else
-  PKG_MANAGER="unknown"
-  BAT_PKG="batcat"
-  BAT_CMD="batcat"
-fi
 
-success "Package manager: $PKG_MANAGER | bat command: $BAT_CMD"
 
 # =============================================================================
 # STEP 3 — CREATE .zshrc IF IT DOESN'T EXIST IN THE REPO
@@ -145,7 +119,7 @@ if [ ! -f "$REPO_DIR/.zshrc" ]; then
   info "Creating .zshrc in $REPO_DIR..."
 
   # This is a heredoc — everything between EOF markers is written to the file
-  # The bat alias is set dynamically based on what we detected above
+  # The bat alias is hardcoded as batcat — correct for all Debian-based distros
   cat << EOF > "$REPO_DIR/.zshrc"
 # Enable Powerlevel10k instant prompt.
 # This makes the prompt appear almost instantly while zsh loads in the background.
@@ -200,7 +174,7 @@ eval "\$(zoxide init zsh)"
 # =============================================================================
 # ALIASES — shortcuts for common commands
 # =============================================================================
-alias bat='${BAT_CMD}'           # bat/batcat — syntax-highlighted cat replacement
+alias bat='batcat'               # batcat is the Debian package name — this alias lets you just type 'bat'
 alias ls='eza --icons --group-directories-first'          # better ls with icons
 alias ll='eza --icons --group-directories-first --long'   # ls with details
 alias la='eza --icons --group-directories-first --long --all'  # include hidden files
@@ -244,10 +218,11 @@ CORE_PACKAGES="zsh git curl fzf zoxide tealdeer htop"
 info "Installing core packages: $CORE_PACKAGES"
 sudo apt install -y $CORE_PACKAGES
 
-# Install bat (syntax-highlighted cat)
-# On Debian/Parrot it's called batcat, elsewhere it's bat
-info "Installing bat ($BAT_PKG)..."
-sudo apt install -y "$BAT_PKG" || warn "bat not available — skipping"
+# Install batcat — the syntax-highlighted cat replacement.
+# Always called 'batcat' on Debian-based distros (Parrot, Kali, Ubuntu, Debian).
+# The alias bat='batcat' in .zshrc means you type 'bat' and it just works.
+info "Installing batcat..."
+sudo apt install -y batcat || warn "batcat not available — skipping"
 
 # Install eza (modern ls replacement)
 # eza is newer and not always in repos — we try it and fall back gracefully
